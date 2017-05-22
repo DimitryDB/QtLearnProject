@@ -1,5 +1,7 @@
 #include <QAction>
+#include <QtDebug>
 #include <Qmenu>
+#include <QtSql>
 #include "catalogue.h"
 #include "posaction.h"
 
@@ -9,53 +11,82 @@ namespace CATALOG {
 /*********************************************************************/
 
 Model::Model(QObject *parent) : QAbstractTableModel(parent) {
+
+    QSqlQuery qry;
+    qry.setForwardOnly(true);
+    qry.prepare(
+        "select                           \n"
+        "       iid,                      \n"
+        "       code,                     \n"
+        "       title,                    \n"
+        "       valid_from,               \n"
+        "       valid_to,                 \n"
+        "       islocal,                  \n"
+        "       acomment,                 \n"
+        "       rid_parent,               \n"
+        "       alevel                    \n"
+        "   from catalogue;               \n"
+    );
+    if(qry.exec()) {
+        while (qry.next()) {
+            ITEM::Data *D = new ITEM::Data(this,qry);
+            Cat.append(D);
+        }
+    } else {
+        QSqlError err = qry.lastError();
+        qCritical() << err.driverText();
+        qCritical() << err.databaseText();
+    }
+
+
+
     //TO DO Replace test catalog
-    {
-     ITEM::Data *D = new ITEM::Data(this);
-     D->Code    = "1111";
-     D->Title   = "Physics";
-     D->From    = QDateTime::currentDateTime();
-     D->To      = QDateTime();
-     D->isLocal = false;
-     Cat.append(D);
-    }
-    {
-     ITEM::Data *D = new ITEM::Data(this);
-     D->Code    = "2222";
-     D->Title   = "Math";
-     D->From    = QDateTime::currentDateTime();
-     D->To      = QDateTime();
-     D->isLocal = false;
-     Cat.append(D);
-    }
-    {
-     ITEM::Data *D = new ITEM::Data(this);
-     D->Code    = "3333";
-     D->Title   = "Biology";
-     D->From    = QDateTime::currentDateTime();
-     D->To      = QDateTime();
-     D->isLocal = false;
-     Cat.append(D);
-    }
-    {
-     ITEM::Data *D = new ITEM::Data(this);
-     D->Code    = "4444";
-     D->Title   = "Valeo";
-     D->From    = QDateTime::currentDateTime();
-     D->To      = QDateTime();
-     D->isLocal = true;
-     D ->Comment = "Trash";
-     Cat.append(D);
-    }
-    {
-     ITEM::Data *D = new ITEM::Data(this);
-     D->Code    = "5555";
-     D->Title   = "Literature";
-     D->From    = QDateTime::currentDateTime();
-     D->To      = QDateTime();
-     D->isLocal = true;
-     Cat.append(D);
-    }
+//    {
+//     ITEM::Data *D = new ITEM::Data(this);
+//     D->Code    = "1111";
+//     D->Title   = "Physics";
+//     D->From    = QDateTime::currentDateTime();
+//     D->To      = QDateTime();
+//     D->isLocal = false;
+//     Cat.append(D);
+//    }
+//    {
+//     ITEM::Data *D = new ITEM::Data(this);
+//     D->Code    = "2222";
+//     D->Title   = "Math";
+//     D->From    = QDateTime::currentDateTime();
+//     D->To      = QDateTime();
+//     D->isLocal = false;
+//     Cat.append(D);
+//    }
+//    {
+//     ITEM::Data *D = new ITEM::Data(this);
+//     D->Code    = "3333";
+//     D->Title   = "Biology";
+//     D->From    = QDateTime::currentDateTime();
+//     D->To      = QDateTime();
+//     D->isLocal = false;
+//     Cat.append(D);
+//    }
+//    {
+//     ITEM::Data *D = new ITEM::Data(this);
+//     D->Code    = "4444";
+//     D->Title   = "Valeo";
+//     D->From    = QDateTime::currentDateTime();
+//     D->To      = QDateTime();
+//     D->isLocal = true;
+//     D ->Comment = "Trash";
+//     Cat.append(D);
+//    }
+//    {
+//     ITEM::Data *D = new ITEM::Data(this);
+//     D->Code    = "5555";
+//     D->Title   = "Literature";
+//     D->From    = QDateTime::currentDateTime();
+//     D->To      = QDateTime();
+//     D->isLocal = true;
+//     Cat.append(D);
+//    }
 }
 
 Model::~Model() {}

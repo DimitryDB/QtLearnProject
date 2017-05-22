@@ -1,3 +1,4 @@
+#include <QtSql>
 #include "catitemedit.h"
 
 namespace STORE {
@@ -6,7 +7,20 @@ namespace ITEM {
 
 /*********************************************************************/
 
-Frame::Frame(QWidget *parent) : QFrame(parent) {
+Data::Data(QObject *parent, QSqlQuery &qry) : QObject(parent) {
+    id         = qry.value( "iid"       );
+    Code       = qry.value( "code"      ).toString();
+    Title      = qry.value( "title"     ).toString();
+    From       = qry.value( "valid_from").toDateTime();
+    To         = qry.value( "valid_to"  ).toDateTime();
+    Comment    = qry.value( "acomment"  ).toString();
+    isLocal    = qry.value( "islocal"   ).toBool();
+    pParentItem = 0;
+}
+
+/*********************************************************************/
+
+Frame::Frame(QWidget *parent) : QFrame(parent)  {
     ui.setupUi(this);
     Block = 0;
 }
