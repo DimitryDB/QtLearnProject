@@ -16,9 +16,14 @@ namespace ITEM {
 class Data : public QObject {
     Q_OBJECT
 public:
-    Data(QObject *parent= 0) : QObject(parent) {}
+    // inline constructor to set current date and time for default
+    // object
+    Data(QObject *parent= 0) : QObject(parent) , isLocal(true)
+    , pParentItem(0), deleted(false) {From = QDateTime().currentDateTime();}
+    // SqlQuery based constructor
     Data(QObject *parent, QSqlQuery &qry);
     // pictogramm
+    bool dataIsActive() const;
     QVariant    id;
     QString     Code;
     QString     Title;
@@ -27,7 +32,7 @@ public:
     QString     Comment;
     bool        isLocal;
     Data        *pParentItem;
-
+    bool        deleted;
 };
 
 /*********************************************************************/

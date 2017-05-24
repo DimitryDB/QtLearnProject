@@ -1,38 +1,37 @@
 #include <QtSql>
 #include "application.h"
+#include "dialogtpl.h"
+#include "pasreq.h"
+#include "confdialog.h"
 
 namespace STORE {
 
 
 /*********************************************************************/
 
-//
-// Делаем проверку в конструкторе апликейшена?
-// если да то при нажати кансел в диалоге ввода имени и пароля
-// выходим из программы через эксепшн?
-// при неправильном вводе имени и пароля каким ообразом мы это узнаем?
-// через возвращаемый буль и lastError()? и опять же выходим через эксепшн
-//
-
 Application::Application(int argc , char *argv[]) : QApplication(argc , argv) {
     QSqlDatabase db = QSqlDatabase::addDatabase("QPSQL");
     db.setHostName("localhost");
     db.setPort(5432);
     db.setDatabaseName("store");
-    // TO DO Make window to ask name and password
-    while(true) {
-        db.setUserName("admin");
-        db.setPassword("1");
-        if(!db.open("admin","1")) {
-            QSqlError err =db.lastError();
-            qCritical() << err.driverText();
-            qCritical() << err.databaseText();
-            continue;
-        }
-        break;
-    }
-
-
+    db.open("admin","1");
+//    while(true) {
+//        PassDialog check;
+//        if (check.exec() == QDialog::Accepted) {
+//            QString name = check.getName();
+//            QString pass = check.getPass();
+//            db.setUserName(name);
+//            db.setPassword(pass);
+//            if(!db.open(name,pass)) {
+//                ConfDialog tmp;
+//                QSqlError err =db.lastError();
+//                tmp.error_message(err.databaseText());
+//                tmp.exec();
+//                continue;
+//            }
+//        }
+//        break;
+//    }
 }
 Application::~Application() {}
 

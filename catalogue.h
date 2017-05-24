@@ -28,10 +28,15 @@ protected:
     virtual QVariant dataDisplay(const QModelIndex &I) const;
     virtual QVariant dataTextAlignment(const QModelIndex &I) const;
     virtual ITEM::Data* dataDataPointer(const QModelIndex &I) const;
+    virtual QVariant dataFont(const QModelIndex &I) const;
+    virtual QVariant dataForeground(const QModelIndex &I) const;
+    virtual QVariant dataToolTip(const QModelIndex &I) const;
 private:
     QList<ITEM::Data*> Cat;
 public slots:
     void editItem(const QModelIndex &i, QWidget *parent =0);
+    void newItem(const QModelIndex &parentI, QWidget *parent=0);
+    void dellItem(const QModelIndex &i, QWidget *parent =0);
 };
 
 /*********************************************************************/
@@ -43,7 +48,9 @@ public:
     TableView(QWidget *parent = 0);
     virtual ~TableView();
 private:
+    PosAction *actNewItem;
     PosAction *actEditItem;
+    PosAction *actdellItem;
 private slots:
     void contextMenuRqusested(const QPoint &p);
 };

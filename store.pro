@@ -29,7 +29,9 @@ SOURCES +=  application.cpp \
             doalogtpl.cpp \
             main.cpp \
             mainwindow.cpp \
-            posaction.cpp
+            posaction.cpp \
+    pasreq.cpp \
+    confdialog.cpp
 
 
 
@@ -41,11 +43,14 @@ HEADERS  += application.h \
             catitemedit.h \
             dialogtpl.h \
             mainwindow.h \
-            posaction.h
+            posaction.h \
+    pasreq.h \
+    confdialog.h
 
 
 
 
 FORMS +=   buttonsFrame.ui \
-           CatItemFrame.ui
+           CatItemFrame.ui \
+    pasreq.ui
 

@@ -8,14 +8,24 @@ namespace ITEM {
 /*********************************************************************/
 
 Data::Data(QObject *parent, QSqlQuery &qry) : QObject(parent) {
-    id         = qry.value( "iid"       );
-    Code       = qry.value( "code"      ).toString();
-    Title      = qry.value( "title"     ).toString();
-    From       = qry.value( "valid_from").toDateTime();
-    To         = qry.value( "valid_to"  ).toDateTime();
-    Comment    = qry.value( "acomment"  ).toString();
-    isLocal    = qry.value( "islocal"   ).toBool();
+    id          = qry.value( "iid"       );
+    Code        = qry.value( "code"      ).toString();
+    Title       = qry.value( "title"     ).toString();
+    From        = qry.value( "valid_from").toDateTime();
+    To          = qry.value( "valid_to"  ).toDateTime();
+    Comment     = qry.value( "acomment"  ).toString();
+    isLocal     = qry.value( "islocal"   ).toBool();
     pParentItem = 0;
+    deleted     = false;
+}
+bool Data::dataIsActive() const {
+    if(From > QDateTime::currentDateTime())
+        return false;
+    if(To.isValid()) {
+        if (To < QDateTime::currentDateTime())
+            return false;
+    }
+    return true;
 }
 
 /*********************************************************************/

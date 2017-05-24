@@ -32,6 +32,7 @@ public:
 
 protected:
     void setCentralFrame(QFrame *central);
+    ButtonsDlg * getButtonsPtr() { return pButtons;}
 
 private:
     ButtonsDlg *pButtons;
