@@ -30,7 +30,7 @@ public:
     // inline constructor to set current date and time for default
     // object
     Data(QObject *parent= 0) : QObject(parent) , isLocal(true)
-    , pParentItem(0), deleted(false) {From = QDateTime().currentDateTime();}
+    , pParentItem(0), deleted(false), changed(false) {From = QDateTime().currentDateTime();}
     // SqlQuery based constructor
     Data(QObject *parent, QSqlQuery &qry);
     // pictogramm
@@ -47,6 +47,7 @@ public:
     Data        *pParentItem;
     bool        deleted;
     List        Children;
+    bool        changed;
 };
 
 /*********************************************************************/

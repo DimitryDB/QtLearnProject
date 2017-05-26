@@ -21,7 +21,7 @@ public:
     Model(QObject *parent = 0);
     virtual ~Model();
     int rowCount(const QModelIndex &parent) const ;
-    int columnCount(const QModelIndex &parent) const;
+    int columnCount(const QModelIndex &) const;
     QVariant data(const QModelIndex &I, int role) const;
     QVariant headerData(int section, Qt::Orientation orientation, int role) const;
     QModelIndex index(int row, int column, const QModelIndex &parent) const;
@@ -33,6 +33,7 @@ protected:
     //virtual ITEM::Data* dataDataPointer(const QModelIndex &I) const;
     virtual QVariant dataFont(const QModelIndex &I) const;
     virtual QVariant dataForeground(const QModelIndex &I) const;
+    virtual QVariant dataBackground(const QModelIndex &I) const;
     virtual QVariant dataToolTip(const QModelIndex &I) const;
 private:
     mutable int lastTempId;
@@ -55,8 +56,12 @@ private:
     PosAction *actNewItem;
     PosAction *actEditItem;
     PosAction *actdellItem;
+    PosAction *actRootItem;
+    QAction *actParentRootItem;
 private slots:
     void contextMenuRqusested(const QPoint &p);
+    void showChildren(const QModelIndex, QWidget*);
+    void showParent(void);
 };
 
 /*********************************************************************/

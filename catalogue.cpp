@@ -73,8 +73,8 @@ int Model::rowCount(const QModelIndex &parent) const {
     }
 }
 
-int Model::columnCount(const QModelIndex &parent) const {
-        return 6 ;   
+int Model::columnCount(const QModelIndex&) const {
+    return 6;
 }
 
 QVariant Model::dataDisplay(const QModelIndex &I) const {
@@ -94,6 +94,7 @@ QVariant Model::dataFont(const QModelIndex &I) const {
     if (!D) return QVariant();
     QFont F;
     if (D->deleted) F.setStrikeOut(true);
+    if (D->changed) F.setItalic(true);
     return F;
 }
 QVariant Model::dataForeground(const QModelIndex &I) const {
@@ -102,6 +103,19 @@ QVariant Model::dataForeground(const QModelIndex &I) const {
     if (!D->dataIsActive()) Result.setAlphaF(0.5);
     return Result;
 }
+QVariant Model::dataBackground(const QModelIndex &I) const {
+    DATA_PTR (D,I,QVariant());
+    if (!D->isNew()) return QVariant();
+    QColor Result = QColor("green");
+    if (!D->dataIsActive()) {
+        Result.setAlphaF(0.1);
+    } else {
+        Result.setAlphaF(0.4);
+    }
+
+    return Result;
+}
+
 QVariant Model::dataToolTip(const QModelIndex &I) const {
     DATA_PTR (D,I,QVariant());
     switch(I.column()) {
@@ -132,6 +146,7 @@ QVariant Model::data(const QModelIndex &I, int role) const {
     case Qt::ToolTipRole : return dataToolTip(I);
     case Qt::UserRole+1 : { DATA_PTR(D,I,false);
                             return D->deleted; }
+    case Qt::BackgroundRole : return dataBackground(I);
     default : return QVariant();
     }
 }
@@ -163,7 +178,8 @@ QVariant Model::headerData(int section, Qt::Orientation orientation, int role) c
 QModelIndex Model::index(int row, int column, const QModelIndex &parent) const {
     if(parent.isValid()) {
         DATA_PTR(D,parent,QModelIndex());
-        return createIndex(row, column,(void*)D );
+        if (row < 0 || row >= D->Children.size()) return QModelIndex();
+        return createIndex(row, column,(void*)D->Children[row] );
     } else {
         if (row <0 || row >= Cat.size()) return QModelIndex();
         return createIndex(row, column, (void*)(Cat[row]) );
@@ -208,10 +224,18 @@ void Model::editItem(const QModelIndex &i, QWidget *parent) {
 }
 
 void Model::newItem(const QModelIndex &parentI, QWidget *parent) {
+//    if (parentI.isValid()) {
+//        // TO DO Add new element
+//        qWarning() << tr("Cannot add non top level item");
+//        return;
+//    }
+    ITEM::Data *P=0;
     if (parentI.isValid()) {
-        // TO DO Add new element
-        qWarning() << tr("Cannot add non top level item");
-        return;
+        P=(ITEM::Data*)(parentI.internalPointer());
+        if(!P) {
+            qWarning()<< "Invalid internal pointer";
+            return;
+        }
     }
     ITEM::Data *D = new ITEM::Data(this);
     if (!D) {
@@ -222,7 +246,11 @@ void Model::newItem(const QModelIndex &parentI, QWidget *parent) {
     dia.setDataBlock(D);
     if(dia.exec() == QDialog::Accepted ) {
         beginResetModel();
+        if(P) {
+            P->Children.append(D);
+        } else {
         Cat.append(D);
+        }
         D->setProperty("tempId", tmpId() );
         endResetModel();
     } else {
@@ -255,29 +283,42 @@ void Model::dellItem(const QModelIndex &i, QWidget *parent) {
 
 TableView::TableView(QWidget *parent) : QTableView(parent) {
     setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(this,SIGNAL(customContextMenuRequested(QPoint))
-            ,this,SLOT(contextMenuRqusested(QPoint)));
+    connect(this,SIGNAL(customContextMenuRequested(QPoint)),
+            this,SLOT(contextMenuRqusested(QPoint)));
     Model *M = new Model(this);
     setModel(M);
     {
      PosAction *A = actEditItem = new PosAction(this);
      A->setText(tr("Edit"));
-     connect (A,SIGNAL(editItem(QModelIndex,QWidget*))
-              , M, SLOT(editItem(QModelIndex,QWidget*)));
+     connect (A,SIGNAL(editItem(QModelIndex,QWidget*)),
+              M, SLOT(editItem(QModelIndex,QWidget*)));
      addAction(A);
     }
     {
      PosAction *A = actNewItem = new PosAction(this);
      A->setText(tr("Add"));
-     connect (A,SIGNAL(editItem(QModelIndex,QWidget*))
-              , M, SLOT(newItem(QModelIndex,QWidget*)));
+     connect (A,SIGNAL(editItem(QModelIndex,QWidget*)),
+              M, SLOT(newItem(QModelIndex,QWidget*)));
      addAction(A);
     }
     {
      PosAction *A = actdellItem = new PosAction(this);
      A->setText(tr("Del"));
-     connect (A,SIGNAL(editItem(QModelIndex,QWidget*))
-              , M, SLOT(dellItem(QModelIndex,QWidget*)));
+     connect (A,SIGNAL(editItem(QModelIndex,QWidget*)),
+              M, SLOT(dellItem(QModelIndex,QWidget*)));
+     addAction(A);
+    }
+    {
+     PosAction *A = actRootItem = new PosAction(this);
+     A->setText(tr("Show Children"));
+     connect (A,SIGNAL(editItem(QModelIndex,QWidget*)),
+              this, SLOT(showChildren(QModelIndex,QWidget*)));
+     addAction(A);
+    }
+    {
+     QAction *A = actParentRootItem = new PosAction(this);
+     A->setText(tr("Show Parent"));
+     connect (A,SIGNAL(triggered()), this, SLOT(showParent()));
      addAction(A);
     }
     {
@@ -300,24 +341,41 @@ void TableView::contextMenuRqusested(const QPoint &p) {
     QMenu M(this);
     QModelIndex i = indexAt(p);
     if (i.isValid()) {
-        actdellItem->I =i;
-        actdellItem->pWidget = this;
+
         actEditItem->I = i;
         actEditItem->pWidget = this;
         M.addAction(actEditItem);
+        actdellItem->I =i;
+        actdellItem->pWidget = this;
         if (i.data(Qt::UserRole+1).toBool()) {
             actdellItem->setText(tr("Restore"));
         } else {
             actdellItem->setText(tr("Del"));
         }
-        M.addAction(actdellItem);
+        M.addAction(actdellItem);     
     }
-    actNewItem->I = QModelIndex();
+    actNewItem->I = rootIndex();
     actNewItem->pWidget = this;
     M.addAction(actNewItem);
+    if (i.isValid()) {
+        actRootItem->I = i;
+        actRootItem->pWidget = this;
+        M.addAction(actRootItem);
+    }
+    if(rootIndex().isValid()) {
+        M.addAction(actParentRootItem);
+    }
     M.exec(mapToGlobal(p));
-
 }
+
+void TableView::showChildren(const QModelIndex I, QWidget *) {
+    setRootIndex(I);
+}
+void TableView::showParent(void) {
+    if (rootIndex().isValid())
+        setRootIndex(rootIndex().parent());
+}
+
 /*********************************************************************/
 
 } // namespace CATALOG

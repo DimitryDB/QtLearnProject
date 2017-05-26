@@ -33,6 +33,7 @@ Data::Data(QObject *parent, QSqlQuery &qry) : QObject(parent) {
     isLocal     = qry.value( "islocal"   ).toBool();
     pParentItem = 0;
     deleted     = false;
+    changed     = false;
 }
 bool Data::dataIsActive() const {
     if(From > QDateTime::currentDateTime())
@@ -94,6 +95,7 @@ bool Frame::save(){
         Block->To = ui.edtTo->dateTime();
     else
         Block->To = QDateTime();
+    Block->changed = true;
     return true;
 }
 
