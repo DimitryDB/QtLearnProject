@@ -6,13 +6,20 @@
 #include "confdialog.h"
 #include "posaction.h"
 
+#define DATA_PTR(D,I,VALUE)  \
+STORE::CATALOG::ITEM::Data *D = \
+                (STORE::CATALOG::ITEM::Data*)(I.internalPointer()); \
+        if(!D) return VALUE
+
+#define DATE_STR(DATE) ( \
+DATE.isValid() ? DATE.toString("dd.MM.yyyy") : QString() \
+)
 namespace STORE {
 namespace CATALOG {
 
 /*********************************************************************/
 
-Model::Model(QObject *parent) : QAbstractTableModel(parent) {
-
+Model::Model(QObject *parent) : QAbstractItemModel(parent) , lastTempId(1) {
     QSqlQuery qry;
     qry.setForwardOnly(true);
     qry.prepare(
@@ -26,12 +33,26 @@ Model::Model(QObject *parent) : QAbstractTableModel(parent) {
         "       acomment,                 \n"
         "       rid_parent,               \n"
         "       alevel                    \n"
-        "   from catalogue;               \n"
+        "   from catalogue                \n"
+        "   order by alevel;              \n"
     );
     if(qry.exec()) {
         while (qry.next()) {
+            bool OK = false;
+            QVariant PI =  qry.value("rid_parent");
+            int parentId = PI.toInt(&OK);
+            ITEM::Data *P = 0;
+            if(OK && !PI.isNull())
+                P = Cat.findPointer(parentId);
+            if (P) {
+                ITEM::Data *D = new ITEM::Data(P,qry);
+                P->Children.append(D);
+                D->pParentItem = P;
+            } else {
             ITEM::Data *D = new ITEM::Data(this,qry);
             Cat.append(D);
+            D->pParentItem = 0;
+            }
         }
     } else {
         QSqlError err = qry.lastError();
@@ -47,50 +68,42 @@ int Model::rowCount(const QModelIndex &parent) const {
         return Cat.size() ;
     }
     else {
-        return 0;
+        DATA_PTR (P,parent,0);
+        return P->Children.size();
     }
 }
 
 int Model::columnCount(const QModelIndex &parent) const {
-    if (!parent.isValid()) {
-        return 6 ;
-    }
-    else {
-        return 0;
-    }
+        return 6 ;   
 }
 
 QVariant Model::dataDisplay(const QModelIndex &I) const {
-    ITEM::Data *D = Cat[I.row()];
+    DATA_PTR(D,I,QVariant());
     switch (I.column()) {
     case 0 : return D->Code;
     case 1 : return D->Title;
-    case 2 : return D->From.isValid() ?
-                    D->From.toString("dd.MM.yyyy") : "";
-    case 3 : return D->To.isValid() ?
-                    D->To.toString("dd.MM.yyyy") : "";
+    case 2 : return DATE_STR(D->From);
+    case 3 : return DATE_STR(D->To);
     case 4 : return D->isLocal ? tr("LOCAL") : QString();
     case 5 : return D->Comment.isEmpty() ? QString() : tr("CMT") ;
     default : return QVariant();
     }
 }
 QVariant Model::dataFont(const QModelIndex &I) const {
-    ITEM::Data *D = dataDataPointer(I);
+    DATA_PTR (D,I,QVariant());
     if (!D) return QVariant();
     QFont F;
     if (D->deleted) F.setStrikeOut(true);
     return F;
 }
 QVariant Model::dataForeground(const QModelIndex &I) const {
-    ITEM::Data *D = dataDataPointer(I);
-    if (!D) return QVariant();
+    DATA_PTR (D,I,QVariant());
     QColor Result = D->isLocal ?  QColor("blue") : QColor("black");
     if (!D->dataIsActive()) Result.setAlphaF(0.5);
     return Result;
 }
 QVariant Model::dataToolTip(const QModelIndex &I) const {
-    ITEM::Data *D = dataDataPointer(I);
-    if (!D) return QVariant();
+    DATA_PTR (D,I,QVariant());
     switch(I.column()) {
     case 2: { if(!D->To.isValid()) return QVariant();
               return tr("Valid to : %1").arg(D->To.toString("dd.MM.yyyy"));
@@ -104,11 +117,11 @@ QVariant Model::dataTextAlignment(const QModelIndex &I) const{
     return Result;
 }
 
-ITEM::Data* Model::dataDataPointer (const QModelIndex &I) const {
-    int R =  I.row();
-    if (R <0 || R >= Cat.size()) return 0;
-    return Cat[R];
-}
+//ITEM::Data* Model::dataDataPointer (const QModelIndex &I) const {
+//    int R =  I.row();
+//    if (R <0 || R >= Cat.size()) return 0;
+//    return Cat[R];
+//}
 
 QVariant Model::data(const QModelIndex &I, int role) const {
     switch(role) {
@@ -117,9 +130,7 @@ QVariant Model::data(const QModelIndex &I, int role) const {
     case Qt::ForegroundRole : return dataForeground(I);
     case Qt::FontRole : return dataFont(I);
     case Qt::ToolTipRole : return dataToolTip(I);
-    //case Qt::UserRole : return QVariant(dataDataPointer(I));
-    case Qt::UserRole+1 : { ITEM::Data *D = dataDataPointer(I);
-                            if (!D) return false;
+    case Qt::UserRole+1 : { DATA_PTR(D,I,false);
                             return D->deleted; }
     default : return QVariant();
     }
@@ -127,7 +138,7 @@ QVariant Model::data(const QModelIndex &I, int role) const {
 
 QVariant Model::headerData(int section, Qt::Orientation orientation, int role) const {
     if (orientation != Qt::Horizontal)
-        return QAbstractTableModel::headerData(section,orientation,role);
+        return QAbstractItemModel::headerData(section,orientation,role);
     switch (role) {
     case Qt::DisplayRole :
        switch (section) {
@@ -149,9 +160,46 @@ QVariant Model::headerData(int section, Qt::Orientation orientation, int role) c
     default : return QVariant();
     }
 }
+QModelIndex Model::index(int row, int column, const QModelIndex &parent) const {
+    if(parent.isValid()) {
+        DATA_PTR(D,parent,QModelIndex());
+        return createIndex(row, column,(void*)D );
+    } else {
+        if (row <0 || row >= Cat.size()) return QModelIndex();
+        return createIndex(row, column, (void*)(Cat[row]) );
+    }
+}
+QModelIndex Model::parent(const QModelIndex &I) const {
+    DATA_PTR(D,I,QModelIndex());
+    ITEM::Data *P = D->pParentItem;
+    if(!P)
+        return QModelIndex();
+    int Row = -1;
+    ITEM::Data *Gp = P->pParentItem;
+    if (Gp) {
+        for(int i = 0; i < Gp->Children.size(); i++) {
+            if (Gp->Children[i]->isSameAs(P)) {
+                Row = i;
+                break;
+             }
+         }
+    } else {
+        for(int i = 0; i < Cat.size(); i++) {
+            if (Cat[i]->isSameAs(P)) {
+                Row = i;
+                break;
+            }
+        }
+    }
+    if (Row < 0) {
+        qWarning() <<"Cannot Finde Item";
+        return QModelIndex();
+        }
+     return createIndex(Row,0,P);
+}
 void Model::editItem(const QModelIndex &i, QWidget *parent) {
     ITEM::Dialog dia(parent);
-    ITEM::Data *D = dataDataPointer(i);
+    DATA_PTR(D,i,);
     if (!D) return;
     beginResetModel();
     dia.setDataBlock(D);
@@ -175,6 +223,7 @@ void Model::newItem(const QModelIndex &parentI, QWidget *parent) {
     if(dia.exec() == QDialog::Accepted ) {
         beginResetModel();
         Cat.append(D);
+        D->setProperty("tempId", tmpId() );
         endResetModel();
     } else {
         delete D;
@@ -182,13 +231,17 @@ void Model::newItem(const QModelIndex &parentI, QWidget *parent) {
 }
 
 void Model::dellItem(const QModelIndex &i, QWidget *parent) {
-    ITEM::Data *D = dataDataPointer(i);
+    DATA_PTR(D,i,);
     if (!D) return;
     ConfDialog check(parent);
     if (check.exec() == QDialog::Accepted) {
     // Assume model linear
         beginResetModel();
-        if (D->id.isNull()|| !D->id.isValid()) {
+        if (D->isNew()) {
+            ITEM::Data *P =D->pParentItem;
+            if(P) {
+                P->Children.removeAt(i.row());
+            }
             Cat.removeAt(i.row());
             delete D;
         } else {

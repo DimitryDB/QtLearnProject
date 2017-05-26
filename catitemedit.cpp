@@ -5,6 +5,22 @@ namespace STORE {
 namespace CATALOG {
 namespace ITEM {
 
+
+/*********************************************************************/
+
+Data *List::findPointer(int Id) const {
+    Data *D;
+    foreach(D,*this) {
+        bool OK;
+        int cId = D->id.toInt(&OK);
+        if(OK && cId == Id) return D;
+        Data *R =D->Children.findPointer(Id);
+        if(R) return R;
+
+    }
+    return 0;
+}
+
 /*********************************************************************/
 
 Data::Data(QObject *parent, QSqlQuery &qry) : QObject(parent) {
@@ -27,7 +43,20 @@ bool Data::dataIsActive() const {
     }
     return true;
 }
-
+bool Data::isNew() const {
+    if(!id.isValid()) return true;
+    if(id.isNull()) return true;
+    return false;
+}
+bool Data::isSameAs(Data *D) const {
+    if (isNew()) {
+        if ( ! D->isNew() ) return false;
+                return property("tempId") == D->property("tempId");
+    } else {
+        if (D->isNew()) return false;
+        return D->id == id;
+    }
+}
 /*********************************************************************/
 
 Frame::Frame(QWidget *parent) : QFrame(parent)  {

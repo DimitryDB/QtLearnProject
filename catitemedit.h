@@ -7,9 +7,20 @@
 
 class QSqlQuery;
 
+
 namespace STORE {
 namespace CATALOG {
 namespace ITEM {
+
+class Data;
+
+/*********************************************************************/
+
+class List : public QList<Data*> {
+public:
+    List() : QList<Data*>() {}
+    Data *findPointer(int Id) const;
+};
 
 /*********************************************************************/
 
@@ -24,6 +35,8 @@ public:
     Data(QObject *parent, QSqlQuery &qry);
     // pictogramm
     bool dataIsActive() const;
+    bool isNew() const;
+    bool isSameAs(Data *D) const;
     QVariant    id;
     QString     Code;
     QString     Title;
@@ -33,6 +46,7 @@ public:
     bool        isLocal;
     Data        *pParentItem;
     bool        deleted;
+    List        Children;
 };
 
 /*********************************************************************/
