@@ -31,7 +31,8 @@ SOURCES +=  application.cpp \
             main.cpp \
             mainwindow.cpp \
             pasreq.cpp \
-            posaction.cpp
+            posaction.cpp \
+    books.cpp
 
 
 
@@ -47,7 +48,8 @@ HEADERS  += application.h \
             dialogtpl.h \
             mainwindow.h \
             pasreq.h \
-            posaction.h
+            posaction.h \
+    books.h
 
 
 

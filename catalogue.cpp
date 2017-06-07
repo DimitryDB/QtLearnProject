@@ -1,6 +1,7 @@
 #include <QAction>
 #include <QtDebug>
 #include <Qmenu>
+#include <QMessageBox>
 #include <QtSql>
 #include "catalogue.h"
 #include "confdialog.h"
@@ -60,9 +61,7 @@ Model::Model(QObject *parent) : QAbstractItemModel(parent) , lastTempId(1) {
         qCritical() << err.databaseText();
     }
 }
-
 Model::~Model() {}
-
 int Model::rowCount(const QModelIndex &parent) const {
     if (!parent.isValid()) {
         return Cat.size() ;
@@ -72,16 +71,14 @@ int Model::rowCount(const QModelIndex &parent) const {
         return P->Children.size();
     }
 }
-
 int Model::columnCount(const QModelIndex&) const {
     return 6;
 }
-
 QVariant Model::dataDisplay(const QModelIndex &I) const {
     DATA_PTR(D,I,QVariant());
     switch (I.column()) {
-    case 0 : return D->Code;
-    case 1 : return D->Title;
+    case 1 : return D->Code;
+    case 0 : return D->Title;
     case 2 : return DATE_STR(D->From);
     case 3 : return DATE_STR(D->To);
     case 4 : return D->isLocal ? tr("LOCAL") : QString();
@@ -115,7 +112,6 @@ QVariant Model::dataBackground(const QModelIndex &I) const {
 
     return Result;
 }
-
 QVariant Model::dataToolTip(const QModelIndex &I) const {
     DATA_PTR (D,I,QVariant());
     switch(I.column()) {
@@ -127,16 +123,9 @@ QVariant Model::dataToolTip(const QModelIndex &I) const {
 }
 QVariant Model::dataTextAlignment(const QModelIndex &I) const{
     int Result = Qt::AlignVCenter;
-    Result |= I.column() == 1 ? Qt::AlignLeft : Qt::AlignHCenter;
+    Result |= I.column() == 0 ? Qt::AlignLeft : Qt::AlignHCenter;
     return Result;
 }
-
-//ITEM::Data* Model::dataDataPointer (const QModelIndex &I) const {
-//    int R =  I.row();
-//    if (R <0 || R >= Cat.size()) return 0;
-//    return Cat[R];
-//}
-
 QVariant Model::data(const QModelIndex &I, int role) const {
     switch(role) {
     case Qt::DisplayRole : return dataDisplay(I);
@@ -150,15 +139,14 @@ QVariant Model::data(const QModelIndex &I, int role) const {
     default : return QVariant();
     }
 }
-
 QVariant Model::headerData(int section, Qt::Orientation orientation, int role) const {
     if (orientation != Qt::Horizontal)
         return QAbstractItemModel::headerData(section,orientation,role);
     switch (role) {
     case Qt::DisplayRole :
        switch (section) {
-       case 0 : return tr("Code");
-       case 1 : return tr("Title");
+       case 1 : return tr("Code");
+       case 0 : return tr("Title");
        case 2 : return tr("From");
        case 3 : return tr("To");
        case 4 : return tr("Local");
@@ -222,13 +210,7 @@ void Model::editItem(const QModelIndex &i, QWidget *parent) {
     dia.exec();
     endResetModel();
 }
-
 void Model::newItem(const QModelIndex &parentI, QWidget *parent) {
-//    if (parentI.isValid()) {
-//        // TO DO Add new element
-//        qWarning() << tr("Cannot add non top level item");
-//        return;
-//    }
     ITEM::Data *P=0;
     if (parentI.isValid()) {
         P=(ITEM::Data*)(parentI.internalPointer());
@@ -248,6 +230,7 @@ void Model::newItem(const QModelIndex &parentI, QWidget *parent) {
         beginResetModel();
         if(P) {
             P->Children.append(D);
+            D->pParentItem = P;
         } else {
         Cat.append(D);
         }
@@ -257,13 +240,11 @@ void Model::newItem(const QModelIndex &parentI, QWidget *parent) {
         delete D;
     }
 }
-
 void Model::dellItem(const QModelIndex &i, QWidget *parent) {
     DATA_PTR(D,i,);
     if (!D) return;
     ConfDialog check(parent);
     if (check.exec() == QDialog::Accepted) {
-    // Assume model linear
         beginResetModel();
         if (D->isNew()) {
             ITEM::Data *P =D->pParentItem;
@@ -278,14 +259,225 @@ void Model::dellItem(const QModelIndex &i, QWidget *parent) {
         endResetModel();
     }
 }
+bool Model::deleteAllfromDb(ITEM::Data *D) {
+    ITEM::List *Children = D ? &(D->Children) : &Cat;
+    ITEM::Data *X;
+    foreach (X, *Children) {
+       if (!deleteAllfromDb(X))
+           return false;
+    }
+    if(!D) return true;
+    if(!D->deleted) return true;
+    {
+    QSqlQuery DEL;
+    DEL.setForwardOnly(true);
+    DEL.prepare("delete from catalogue where iid = :IID ;");
+    DEL.bindValue(":IID",D->id);
+    if (DEL.exec()) return true;
+    qCritical() << DEL.lastError().databaseText().toUtf8().data();
+    qCritical() << DEL.lastError().nativeErrorCode();
+    }
+    return false;
+}
+bool Model::deleteAllfromModel(ITEM::Data *D) {
+    ITEM::List *Children = D ? &(D->Children) : &Cat;
+    bool result = true;
+    beginResetModel();
+    for (int k = Children->size()-1 ; k>=0 ; k--) {
+        if (Children->at(k)->deleted) {
+            ITEM::Data *X = Children->takeAt(k);
+            delete X;
+        } else {
+            if (!deleteAllfromModel(Children->at(k))) {
+                    result = false;
+                    break;
+            }
+        }
+    }
+    endResetModel();
+    return result;
+}
+bool Model::deleteAll() {
+    QSqlDatabase DB = QSqlDatabase::database();
+    DB.transaction();
+    if (deleteAllfromDb()) {
+        DB.commit();
+    }else{
+        DB.rollback();
+        return false;
+    }
+    return deleteAllfromModel();
+}
+bool Model::saveAlltoDb(ITEM::Data *D) {
+    ITEM::List *Children = D ? &(D->Children) : &Cat;
+    ITEM::Data *X;
+    foreach (X, *Children) {
+        if (!saveAlltoDb(X))
+            return false;
+    }
+    if(!D) return true;
+    if(!D->changed) return true;
+
+    QSqlQuery UPD;
+    UPD.setForwardOnly(true);
+    UPD.prepare(
+                "update catalogue set    \n"
+                "  code       = :CODE ,  \n"
+                "  title      = :TITLE , \n"
+                "  valid_from = :FROM ,  \n"
+                "  valid_to   = :TO ,    \n"
+                "  islocal    = :LOCAL , \n"
+                "  acomment   = :COMMENT \n"
+                "  where iid  = :IID ;   \n"
+                );
+    UPD.bindValue(":CODE",      D->Code);
+    UPD.bindValue(":TITLE",    D->Title);
+    UPD.bindValue(":FROM",     D->From);
+    UPD.bindValue(":TO",          D->To);
+    UPD.bindValue(":LOCAL",  D->isLocal);
+    UPD.bindValue(":COMMENT",D->Comment);
+    UPD.bindValue(":IID",         D->id);
+    if (UPD.exec()) return true;
+    qCritical() << UPD.lastError().databaseText().toUtf8().data();
+    qCritical() << UPD.lastError().nativeErrorCode();
+    return false;
+}
+bool Model::dropChangedMark(ITEM::Data *D) {
+    ITEM::List *Children = D ? &(D->Children) : &Cat;
+    ITEM::Data *X;
+    foreach (X, *Children) {
+        X->changed = false;
+        if (!dropChangedMark(X))
+            return false;
+    }
+return true;
+}
+bool Model::saveAll() {
+    QSqlDatabase DB = QSqlDatabase::database();
+    DB.transaction();
+    if (saveAlltoDb()) {
+        DB.commit();
+        dropChangedMark();
+    }else{
+        DB.rollback();
+        return false;
+    }
+    return true;
+}
+bool Model::insertNewToDb(ITEM::Data *D) {
+    bool mustBeSaved = D ? D->isNew() : false;
+    if(mustBeSaved) {
+        QSqlQuery INS;
+        INS.setForwardOnly(true);
+        INS.prepare(
+                    "insert into catalogue ( "
+                    "code                   ,\n"
+                    "title                  ,\n"
+                    "valid_from             ,\n"
+                    "valid_to               ,\n"
+                    "islocal                ,\n"
+                    "acomment               ,\n"
+                    "rid_parent              \n"
+                    "    ) values (          \n"
+                    ":CODE                  ,\n"
+                    ":TITLE                 ,\n"
+                    ":FROM                  ,\n"
+                    ":TO                    ,\n"
+                    ":LOCAL                 ,\n"
+                    ":COMMENT               ,\n"
+                    ":PARENT                 \n"
+                    "    ) returning         \n"
+                    "iid                    ,\n"
+                    "code                   ,\n"
+                    "title                  ,\n"
+                    "valid_from             ,\n"
+                    "valid_to               ,\n"
+                    "islocal                ,\n"
+                    "acomment               ,\n"
+                    "rid_parent             ,\n"
+                    "alevel                 ;\n"
+                    );
+        INS.bindValue(":CODE",      D->Code);
+        INS.bindValue(":TITLE",    D->Title);
+        INS.bindValue(":FROM",     D->From);
+        INS.bindValue(":TO",          D->To);
+        INS.bindValue(":LOCAL",  D->isLocal);
+        INS.bindValue(":COMMENT",D->Comment);
+        QVariant idParent = QVariant();
+        if(D->pParentItem) {
+            if(D->pParentItem->isNew()) {
+                idParent = D->pParentItem->property("new_id");
+            } else
+                idParent = D->pParentItem->id;
+        }
+        INS.bindValue(":PARENT", idParent);
+        if (!INS.exec()) {
+             qCritical() << INS.lastError().databaseText().toUtf8().data();
+            qCritical() << INS.lastError().nativeErrorCode();
+            return false;
+        }
+        while(INS.next()) {
+            D->Code = INS.value("code").toString();
+            D->Title = INS.value("title").toString();
+            D->From = INS.value("valid_from").toDateTime();
+            D->To = INS.value("valid_to").toDateTime();
+            D->Comment = INS.value("acomment").toString();
+            D->isLocal = INS.value("islocal").toBool();
+            qDebug() << INS.value("rid_parent") << INS.value("alevel");
+            D->setProperty("new_id",INS.value("iid"));
+        }
+    }
+    ITEM::List *Children = D ? &(D->Children) : &Cat;
+    ITEM::Data *X;
+    foreach (X, *Children) {
+        if (!insertNewToDb(X))
+            return false;
+    }
+    return true;
+}
+bool Model::adjustIdForNew(ITEM::Data *D) {
+    bool mustBeSaved = D ? D->isNew() : false;
+    if(mustBeSaved) {
+        D->id = D->property("new_id");
+    }
+    ITEM::List *Children = D ? &(D->Children) : &Cat;
+    ITEM::Data *X;
+    foreach (X, *Children) {
+        if (!adjustIdForNew(X))
+        return false;
+    }
+    return true;
+}
+bool Model::insertAll() {
+    QSqlDatabase DB = QSqlDatabase::database();
+    DB.transaction();
+    if (insertNewToDb()) {
+        DB.commit();
+        adjustIdForNew();
+    }else{
+        DB.rollback();
+        return false;
+    }
+    return true;
+}
+void Model::save(void) {
+    try {
+    if(! deleteAll()) throw (int)1;
+    if(! saveAll()) throw(int)2;
+    if(! insertAll()) throw(int)3;
+    QMessageBox::information(0,tr("Info"), tr("Succsessfuly Chabged"));
+    } catch (int) {
+            QMessageBox::critical(0,tr("Erro"),tr("Cannot save changes"));
+    }
+}
 
 /*********************************************************************/
 
-TableView::TableView(QWidget *parent) : QTableView(parent) {
+TableView::TableView(QWidget *parent, Model *xModel) : QTableView(parent) {
     setContextMenuPolicy(Qt::CustomContextMenu);
     connect(this,SIGNAL(customContextMenuRequested(QPoint)),
             this,SLOT(contextMenuRqusested(QPoint)));
-    Model *M = new Model(this);
+    Model *M = xModel ? xModel : new Model(this);
     setModel(M);
     {
      PosAction *A = actEditItem = new PosAction(this);
@@ -316,9 +508,15 @@ TableView::TableView(QWidget *parent) : QTableView(parent) {
      addAction(A);
     }
     {
-     QAction *A = actParentRootItem = new PosAction(this);
+     QAction *A = actParentRootItem = new QAction(this);
      A->setText(tr("Show Parent"));
      connect (A,SIGNAL(triggered()), this, SLOT(showParent()));
+     addAction(A);
+    }
+    {
+     QAction *A = actSave = new QAction(this);
+     A->setText(tr("Save"));
+     connect (A,SIGNAL(triggered()), M, SLOT(save()));
      addAction(A);
     }
     {
@@ -328,15 +526,13 @@ TableView::TableView(QWidget *parent) : QTableView(parent) {
     {
      QHeaderView *H = horizontalHeader();
      H->setSectionResizeMode(QHeaderView::ResizeToContents);
-     H->setSectionResizeMode(1,QHeaderView::Stretch);
+     H->setSectionResizeMode(0,QHeaderView::Stretch);
     }
     setColumnHidden(3,true);
     setColumnHidden(4,true);
 
 }
-
 TableView::~TableView(){}
-
 void TableView::contextMenuRqusested(const QPoint &p) {
     QMenu M(this);
     QModelIndex i = indexAt(p);
@@ -365,9 +561,9 @@ void TableView::contextMenuRqusested(const QPoint &p) {
     if(rootIndex().isValid()) {
         M.addAction(actParentRootItem);
     }
+    M.addAction(actSave);
     M.exec(mapToGlobal(p));
 }
-
 void TableView::showChildren(const QModelIndex I, QWidget *) {
     setRootIndex(I);
 }
@@ -375,6 +571,33 @@ void TableView::showParent(void) {
     if (rootIndex().isValid())
         setRootIndex(rootIndex().parent());
 }
+
+/*********************************************************************/
+
+TreeView::TreeView(QWidget *parent, Model *xModel) : QTreeView(parent) {
+    Model *M = xModel ? xModel : new Model(this);
+    setModel(M);
+    setColumnHidden(3,true);
+    setColumnHidden(4,true);
+    {
+     QHeaderView *H = header();
+     H->setSectionResizeMode(QHeaderView::ResizeToContents);
+     H->setSectionResizeMode(1,QHeaderView::Stretch);
+    }
+}
+TreeView::~TreeView() {}
+
+/*********************************************************************/
+
+ColumnView::ColumnView(QWidget *parent, Model *xModel) :QColumnView(parent) {
+    Model *M = xModel ? xModel : new Model(this);
+    setModel(M);
+    QList<int> L;
+    for(int k=0;k<10;k++)
+        L<<150;
+    setColumnWidths(L);
+}
+ColumnView::~ColumnView() {}
 
 /*********************************************************************/
 

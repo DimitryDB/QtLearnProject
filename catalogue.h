@@ -2,6 +2,8 @@
 #define CATALOGUE_H
 #include <QAbstractItemModel>
 #include <QTableView>
+#include <QTreeView>
+#include <QColumnView>
 #include <QList>
 #include <QPoint>
 #include "catitemedit.h"
@@ -30,18 +32,29 @@ protected:
     int tmpId() const {return ++lastTempId;}
     virtual QVariant dataDisplay(const QModelIndex &I) const;
     virtual QVariant dataTextAlignment(const QModelIndex &I) const;
-    //virtual ITEM::Data* dataDataPointer(const QModelIndex &I) const;
     virtual QVariant dataFont(const QModelIndex &I) const;
     virtual QVariant dataForeground(const QModelIndex &I) const;
     virtual QVariant dataBackground(const QModelIndex &I) const;
     virtual QVariant dataToolTip(const QModelIndex &I) const;
+    bool deleteAll();
+    bool saveAll();
+    bool insertAll();
+
+
 private:
+    bool deleteAllfromDb(ITEM::Data *D = 0);
+    bool deleteAllfromModel(ITEM::Data *D = 0);
+    bool saveAlltoDb(ITEM::Data *D = 0);
+    bool dropChangedMark(ITEM::Data *D = 0);
+    bool insertNewToDb(ITEM::Data *D = 0);
+    bool adjustIdForNew(ITEM::Data *D = 0);
     mutable int lastTempId;
     ITEM::List Cat;
 public slots:
     void editItem(const QModelIndex &i, QWidget *parent =0);
     void newItem(const QModelIndex &parentI, QWidget *parent=0);
     void dellItem(const QModelIndex &i, QWidget *parent =0);
+    void save();
 };
 
 /*********************************************************************/
@@ -50,7 +63,7 @@ class TableView : public QTableView {
     Q_OBJECT
 
 public:
-    TableView(QWidget *parent = 0);
+    TableView(QWidget *parent = 0, Model *xModel = 0);
     virtual ~TableView();
 private:
     PosAction *actNewItem;
@@ -58,10 +71,29 @@ private:
     PosAction *actdellItem;
     PosAction *actRootItem;
     QAction *actParentRootItem;
+    QAction *actSave;
 private slots:
     void contextMenuRqusested(const QPoint &p);
     void showChildren(const QModelIndex, QWidget*);
     void showParent(void);
+};
+
+/*********************************************************************/
+
+class TreeView : public QTreeView {
+    Q_OBJECT
+public:
+    TreeView(QWidget *parent = 0, Model *xModel = 0);
+    virtual ~TreeView();
+};
+
+/*********************************************************************/
+
+class ColumnView : public QColumnView {
+    Q_OBJECT
+public:
+    ColumnView(QWidget *parent = 0, Model *xModel = 0);
+    virtual ~ColumnView();
 };
 
 /*********************************************************************/

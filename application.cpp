@@ -25,7 +25,7 @@ Application::Application(int argc , char *argv[]) : QApplication(argc , argv) {
 //            if(!db.open(name,pass)) {
 //                ConfDialog tmp;
 //                QSqlError err =db.lastError();
-//                tmp.error_message(err.databaseText());
+//                tmp.error_message(err.databaseText().toUtf8().data());
 //                tmp.exec();
 //                continue;
 //            }
