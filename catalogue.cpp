@@ -196,7 +196,7 @@ QModelIndex Model::parent(const QModelIndex &I) const {
         }
     }
     if (Row < 0) {
-        qWarning() <<"Cannot Finde Item";
+        qWarning() <<"Cannot find Item";
         return QModelIndex();
         }
      return createIndex(Row,0,P);
@@ -467,7 +467,7 @@ void Model::save(void) {
     if(! insertAll()) throw(int)3;
     QMessageBox::information(0,tr("Info"), tr("Succsessfuly Chabged"));
     } catch (int) {
-            QMessageBox::critical(0,tr("Erro"),tr("Cannot save changes"));
+            QMessageBox::critical(0,tr("Error"),tr("Cannot save changes"));
     }
 }
 
