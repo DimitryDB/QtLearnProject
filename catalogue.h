@@ -94,6 +94,11 @@ class ColumnView : public QColumnView {
 public:
     ColumnView(QWidget *parent = 0, Model *xModel = 0);
     virtual ~ColumnView();
+protected:
+    void currentChanged(const QModelIndex &current,
+                        const QModelIndex &previous);
+signals:
+    void item_selected(QVariant id);
 };
 
 /*********************************************************************/

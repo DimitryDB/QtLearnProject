@@ -599,6 +599,24 @@ ColumnView::ColumnView(QWidget *parent, Model *xModel) :QColumnView(parent) {
 }
 ColumnView::~ColumnView() {}
 
+void ColumnView::currentChanged(const QModelIndex &current,
+                    const QModelIndex &previous) {
+    QColumnView::currentChanged(current,previous);
+    if(! current.isValid()) {
+        emit item_selected(QVariant());
+        return;
+    }
+    STORE::CATALOG::ITEM::Data *D =
+                    (STORE::CATALOG::ITEM::Data*)(current.internalPointer());
+    if(!D) {
+        emit item_selected(QVariant());
+        return;
+    } else {
+        emit item_selected(D->id);
+    }
+//    qDebug() << previous << current;
+}
+
 /*********************************************************************/
 
 } // namespace CATALOG

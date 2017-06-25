@@ -14,6 +14,9 @@ class Model : public QSqlQueryModel {
 public:
     Model(QObject *parent = 0);
     virtual ~Model();
+    int columnCount(const QModelIndex &) const {return 11;}
+public slots:
+    void cat_item_selected(QVariant id);
 };
 
 /*********************************************************************/
@@ -23,6 +26,7 @@ class View : public QTableView {
     public:
     View (QWidget *parent = 0);
     virtual ~View();
+
 };
 
 
