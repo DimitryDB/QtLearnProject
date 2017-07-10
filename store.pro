@@ -24,6 +24,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 
 SOURCES +=  application.cpp \
+            books.cpp \
             catalogue.cpp \
             catitemedit.cpp \
             confdialog.cpp \
@@ -32,7 +33,8 @@ SOURCES +=  application.cpp \
             mainwindow.cpp \
             pasreq.cpp \
             posaction.cpp \
-    books.cpp
+    filter.cpp
+
 
 
 
@@ -42,6 +44,7 @@ SOURCES +=  application.cpp \
 
 
 HEADERS  += application.h \
+            books.h      \
             catalogue.h  \
             catitemedit.h \
             confdialog.h \
@@ -49,7 +52,7 @@ HEADERS  += application.h \
             mainwindow.h \
             pasreq.h \
             posaction.h \
-    books.h
+    filter.h
 
 
 
@@ -58,5 +61,7 @@ HEADERS  += application.h \
 
 FORMS +=   buttonsFrame.ui \
            CatItemFrame.ui \
+           filter.ui \
            pasreq.ui
+
 

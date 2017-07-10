@@ -1,5 +1,5 @@
+#include <QLayout>
 #include "dialogtpl.h"
-#include "QLayout"
 #include "qmessagebox.h"
 namespace STORE {
 

@@ -2,6 +2,7 @@
 #define BOOKS_H
 
 #include <QTableView>
+#include <QSqlTableModel>
 #include <QSqlQueryModel>
 
 namespace STORE {
@@ -14,9 +15,35 @@ class Model : public QSqlQueryModel {
 public:
     Model(QObject *parent = 0);
     virtual ~Model();
-    int columnCount(const QModelIndex &) const {return 11;}
+    int columnCount(const QModelIndex &) const {return 12;}
+private:
+    void adjust_query();
+    QVariant fAuthor;
+    QVariant fTitle;
+    QVariant fYear;
+    QVariant fCatId;
 public slots:
     void cat_item_selected(QVariant id);
+    void apply_filter(QObject *F);
+};
+
+/*********************************************************************/
+
+class Model_EditOnServer : public QSqlTableModel {
+    Q_OBJECT
+public:
+    Model_EditOnServer(QObject *parent = 0);
+    virtual ~Model_EditOnServer();
+    int columnCount(const QModelIndex &) const {return 12;}
+private:
+    void adjust_query();
+    QVariant fAuthor;
+    QVariant fTitle;
+    QVariant fYear;
+    QVariant fCatId;
+public slots:
+    void cat_item_selected(QVariant id);
+    void apply_filter(QObject *F);
 };
 
 /*********************************************************************/

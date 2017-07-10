@@ -1,8 +1,9 @@
 #include <QtSql>
 #include "application.h"
+#include "confdialog.h"
 #include "dialogtpl.h"
 #include "pasreq.h"
-#include "confdialog.h"
+
 
 namespace STORE {
 
